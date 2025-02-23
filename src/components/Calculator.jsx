@@ -2,24 +2,16 @@ import { useState } from "react"
 import { BarChart, Bar, YAxis, ResponsiveContainer, Cell } from "recharts"
 import { Info } from "lucide-react"
 
+/**
+ * A simple tooltip component that shows explanatory text on hover/touch.
+ */
 const InfoTooltip = ({ content }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false)
 
-  const handleTouchStart = () => {
-    setTooltipVisible(true)
-  }
-
-  const handleTouchEnd = () => {
-    setTooltipVisible(false)
-  }
-
-  const handleMouseEnter = () => {
-    setTooltipVisible(true)
-  }
-
-  const handleMouseLeave = () => {
-    setTooltipVisible(false)
-  }
+  const handleTouchStart = () => setTooltipVisible(true)
+  const handleTouchEnd = () => setTooltipVisible(false)
+  const handleMouseEnter = () => setTooltipVisible(true)
+  const handleMouseLeave = () => setTooltipVisible(false)
 
   return (
     <div
@@ -33,7 +25,9 @@ const InfoTooltip = ({ content }) => {
       {isTooltipVisible && (
         <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full w-64 opacity-100 transition-opacity">
           <div className="flex items-center justify-center">
-            <div className="bg-black text-white text-sm rounded-lg py-2 px-3">{content}</div>
+            <div className="bg-black text-white text-sm rounded-lg py-2 px-3">
+              {content}
+            </div>
           </div>
           <div className="absolute left-1/2 -translate-x-1/2 top-full">
             <div className="w-2 h-2 bg-black rotate-45" />
@@ -44,25 +38,27 @@ const InfoTooltip = ({ content }) => {
   )
 }
 
+/**
+ * Helper to return tooltip text for each field.
+ */
 const getTooltipContent = (field) => {
   const tooltips = {
-    salary: "Your total annual salary (CTC). In Old Regime, exemptions like HRA/LTA are deducted from this.",
-    exemptAllowances: "Exemptions such as HRA, LTA, etc. (Deducted only in Old Regime).",
-    interestIncome: "Interest earned from savings, fixed deposits, etc.",
-    homeLoanSelfOccupied: "Interest on home loan for self-occupied property",
-    rentalIncome: "Income from renting out property",
-    homeLoanLetOut: "Interest on home loan for let-out property",
-    digitalAssets: "Income from transfer of virtual digital assets",
-    otherIncome: "Any other taxable income",
-    // Deductions tooltips
-    basic80C: "Investments/expenses under Section 80C (PPF, ELSS, etc.)",
-    deposits80TTA: "Interest earned from savings account",
-    medical80D: "Medical insurance premium for self and family",
-    donations80G: "Donations to approved charities",
-    housing80EEA: "Additional home loan interest deduction",
-    nps80CCD: "Contribution to National Pension System (80CCD(1))",
-    nps80CCD2: "Employer's contribution to NPS",
-    otherDeduction: "Other eligible deductions under Chapter VI-A",
+    salary: "Annual salary (CTC). Old Regime can subtract HRA/LTA here.",
+    exemptAllowances: "Exempt allowances like HRA, LTA, etc. (Old Regime).",
+    interestIncome: "Interest from savings, FDs, etc.",
+    homeLoanSelfOccupied: "Interest on home loan (self-occupied).",
+    rentalIncome: "Income from rented property.",
+    homeLoanLetOut: "Interest on home loan (let-out property).",
+    digitalAssets: "Income from virtual digital assets.",
+    otherIncome: "Any other taxable income.",
+    basic80C: "Investments under Section 80C (PPF, ELSS, etc.).",
+    deposits80TTA: "Interest earned from savings account (80TTA).",
+    medical80D: "Medical insurance premium (80D).",
+    donations80G: "Donations to approved charities (80G).",
+    housing80EEA: "Additional home-loan interest deduction (80EEA).",
+    nps80CCD: "Contributions to NPS (80CCD(1)).",
+    nps80CCD2: "Employer's contribution to NPS (80CCD(2)).",
+    otherDeduction: "Other Chapter VI-A deductions.",
   }
   return tooltips[field] || "Enter details here"
 }
@@ -95,6 +91,7 @@ const TaxCalculator = () => {
     },
   })
 
+  // Results to display after calculation
   const [taxResults, setTaxResults] = useState({
     totalIncome: 0,
     exemptAllowances: 0,
@@ -109,131 +106,184 @@ const TaxCalculator = () => {
 
   const [selectedRegime, setSelectedRegime] = useState("new")
 
-  // Calculate Total Income
-  // For Old Regime: Deduct exemptAllowances from salary before adding other income sources.
+  /**
+   * 1. Calculate "gross income."
+   *    - Old Regime: subtract "exemptAllowances" from "salary"
+   *    - New Regime: do not subtract "exemptAllowances"
+   */
   const calculateTotalIncome = () => {
-    const income = formData.incomeDetails
-    let salary = Number(income.salary) || 0
-    let exemptAllowances = Number(income.exemptAllowances) || 0
+    const inc = formData.incomeDetails
+    let salary = Number(inc.salary) || 0
+    const exempt = Number(inc.exemptAllowances) || 0
     let otherIncome =
-      (Number(income.interestIncome) || 0) +
-      (Number(income.homeLoanSelfOccupied) || 0) +
-      (Number(income.rentalIncome) || 0) +
-      (Number(income.homeLoanLetOut) || 0) +
-      (Number(income.digitalAssets) || 0) +
-      (Number(income.otherIncome) || 0)
+      (Number(inc.interestIncome) || 0) +
+      (Number(inc.homeLoanSelfOccupied) || 0) +
+      (Number(inc.rentalIncome) || 0) +
+      (Number(inc.homeLoanLetOut) || 0) +
+      (Number(inc.digitalAssets) || 0) +
+      (Number(inc.otherIncome) || 0)
 
     if (selectedRegime === "old") {
-      salary = salary - exemptAllowances
+      // In old regime, subtract exemptAllowances from salary
+      salary -= exempt
     }
     return salary + otherIncome
   }
 
-  // Calculate Deductions (Standard Deduction + Chapter VI-A for Old Regime)
+  /**
+   * 2. Calculate the total deduction
+   *    - New Regime: standard deduction only (based on FY)
+   *    - Old Regime: standard deduction + sum(Chapter VI-A)
+   */
   const calculateDeductions = () => {
+    const fy = formData.financialYear
+    let standardDeduction = fy === "FY 2025-2026" ? 75000 : 50000
+
     if (selectedRegime === "new") {
-      // For New Regime, standard deduction depends on the financial year.
-      if (formData.financialYear === "FY 2025-2026") {
-        return 75000
-      }
-      return 50000
+      // No Chapter VI-A in new regime
+      return standardDeduction
+    } else {
+      // Old Regime: standard deduction + Chapter VI-A
+      const chapterVIA = Object.values(formData.deductions).reduce(
+        (a, b) => a + (Number(b) || 0),
+        0
+      )
+      return standardDeduction + chapterVIA
     }
-    // For Old Regime, standard deduction is fixed at ₹50,000 plus Chapter VI-A deductions.
-    const chapterVIA = Object.values(formData.deductions).reduce(
-      (a, b) => a + (Number(b) || 0),
-      0
-    )
-    return 50000 + chapterVIA
   }
 
-  // Compute Tax Using Slab-wise Calculation and Apply Rebate if Applicable
-  const calculateTax = (taxableIncome) => {
+  /**
+   * 3. Slab-wise tax calculation based on regime & FY
+   *    - Then apply rebate (if any)
+   *    - Then add 4% cess
+   */
+  const calculateTaxSlabWise = (taxableIncome) => {
     let tax = 0
-    let rebate = 0
+    const fy = formData.financialYear
 
     if (selectedRegime === "new") {
-      // New Regime Slab Rates (applies for both FYs; only standard deduction and rebate thresholds change)
-      if (taxableIncome <= 300000) {
-        tax = 0
-      } else if (taxableIncome <= 600000) {
-        tax = (taxableIncome - 300000) * 0.05
-      } else if (taxableIncome <= 900000) {
-        tax = 15000 + (taxableIncome - 600000) * 0.1
-      } else if (taxableIncome <= 1200000) {
-        tax = 45000 + (taxableIncome - 900000) * 0.15
-      } else if (taxableIncome <= 1500000) {
-        tax = 90000 + (taxableIncome - 1200000) * 0.2
+      // New Regime Slabs (FY 2024–25 & FY 2025–26)
+      // 0-3L:0%, 3-6L:5%, 6-9L:10%, 9-12L:15%, 12-15L:20%, >15L:30%
+      if (taxableIncome > 1500000) {
+        tax =
+          150000 * 0.3 + // we'll break it down for clarity
+          slabTax(0, 300000, 0) +
+          slabTax(300000, 600000, 0.05) +
+          slabTax(600000, 900000, 0.1) +
+          slabTax(900000, 1200000, 0.15) +
+          slabTax(1200000, 1500000, 0.2) +
+          (taxableIncome - 1500000) * 0.3
+      } else if (taxableIncome > 1200000) {
+        tax =
+          slabTax(0, 300000, 0) +
+          slabTax(300000, 600000, 0.05) +
+          slabTax(600000, 900000, 0.1) +
+          slabTax(900000, 1200000, 0.15) +
+          (taxableIncome - 1200000) * 0.2
+      } else if (taxableIncome > 900000) {
+        tax =
+          slabTax(0, 300000, 0) +
+          slabTax(300000, 600000, 0.05) +
+          slabTax(600000, 900000, 0.1) +
+          (taxableIncome - 900000) * 0.15
+      } else if (taxableIncome > 600000) {
+        tax =
+          slabTax(0, 300000, 0) +
+          slabTax(300000, 600000, 0.05) +
+          (taxableIncome - 600000) * 0.1
+      } else if (taxableIncome > 300000) {
+        tax = slabTax(0, 300000, 0) + (taxableIncome - 300000) * 0.05
       } else {
-        tax = 150000 + (taxableIncome - 1500000) * 0.3
+        tax = 0
       }
-      // Apply rebate under Section 87A for New Regime
-      if (formData.financialYear === "FY 2024-2025" && taxableIncome <= 700000) {
-        rebate = tax // Fully rebate tax if taxable income is within threshold
-      } else if (
-        formData.financialYear === "FY 2025-2026" &&
-        taxableIncome <= 1200000
-      ) {
-        rebate = tax // New Regime gets full rebate under FY 2025-26 if within threshold
+
+      // Rebate in new regime
+      // FY 2024–25 => up to 7L, FY 2025–26 => up to 12L
+      if (fy === "FY 2024-2025" && taxableIncome <= 700000) {
+        tax = 0
+      } else if (fy === "FY 2025-2026" && taxableIncome <= 1200000) {
+        tax = 0
       }
     } else {
-      // Old Regime Slab Rates
-      if (taxableIncome <= 250000) {
-        tax = 0
-      } else if (taxableIncome <= 500000) {
-        tax = (taxableIncome - 250000) * 0.05
-      } else if (taxableIncome <= 1000000) {
+      // Old Regime Slabs
+      // 0-2.5L:0%, 2.5-5L:5%, 5-10L:20%, >10L:30%
+      if (taxableIncome > 1000000) {
+        tax =
+          12500 + 100000 + (taxableIncome - 1000000) * 0.3 // = 1,12,500 + 30% of (above 10L)
+      } else if (taxableIncome > 500000) {
         tax = 12500 + (taxableIncome - 500000) * 0.2
+      } else if (taxableIncome > 250000) {
+        tax = (taxableIncome - 250000) * 0.05
       } else {
-        tax = 112500 + (taxableIncome - 1000000) * 0.3
+        tax = 0
       }
-      // Apply rebate for Old Regime for FY 2024-2025 only
-      if (formData.financialYear === "FY 2024-2025" && taxableIncome <= 500000) {
-        rebate = tax
+
+      // Rebate in old regime
+      // up to 5L for both FY 2024–25 & 2025–26
+      if (taxableIncome <= 500000) {
+        tax = 0
       }
-      // For FY 2025-2026 in Old Regime, assume no rebate as per final comparison.
     }
 
-    const taxAfterRebate = tax - rebate
-    return taxAfterRebate > 0 ? taxAfterRebate : 0
+    // Add 4% cess
+    const cess = Math.round(tax * 0.04)
+    return {
+      tax,
+      cess,
+      finalTax: tax + cess,
+    }
   }
 
+  /**
+   * Utility function to calculate partial tax for a slab.
+   * e.g. slabTax(300000, 600000, 0.05) calculates
+   * 5% of (taxableIncome in [300000, 600000]).
+   */
+  const slabTax = (lower, upper, rate) => {
+    // We'll handle the portion of the taxable income that falls in [lower, upper]
+    // but in practice we've done the if/else to break it up anyway.
+    return (upper - lower) * rate
+  }
+
+  /**
+   * Handle the "Calculate" button
+   */
   const handleCalculate = () => {
     const totalIncome = calculateTotalIncome()
     const totalDeductions = calculateDeductions()
-    // Taxable Income = Gross Income – Standard Deduction (and other exemptions/deductions)
     const taxableIncome = Math.max(0, totalIncome - totalDeductions)
-    const incomeTax = calculateTax(taxableIncome)
-    const healthEducationCess = Math.round(incomeTax * 0.04)
-    const finalTax = incomeTax + healthEducationCess
+
+    const { tax, cess, finalTax } = calculateTaxSlabWise(taxableIncome)
 
     setTaxResults({
       totalIncome,
-      // For display purposes, show exempt allowances only in New Regime (not deducted)
+      // Only show exempt allowances if they haven't been subtracted in new regime
       exemptAllowances:
         selectedRegime === "new"
-          ? Number(formData.incomeDetails.exemptAllowances)
+          ? Number(formData.incomeDetails.exemptAllowances) || 0
           : 0,
       standardDeduction:
-        selectedRegime === "new"
-          ? formData.financialYear === "FY 2025-2026"
-            ? 75000
-            : 50000
-          : 50000,
-      // For Old Regime, chapter VIA deductions are the extra beyond the standard ₹50,000.
+        formData.financialYear === "FY 2025-2026" ? 75000 : 50000,
       chapterVIA:
         selectedRegime === "old"
-          ? calculateDeductions() - 50000
+          ? Object.values(formData.deductions).reduce(
+              (a, b) => a + (Number(b) || 0),
+              0
+            )
           : 0,
       taxableIncome,
-      taxPayable: finalTax,
-      incomeTax,
+      incomeTax: tax,
+      healthEducationCess: cess,
       surcharge: 0,
-      healthEducationCess,
+      taxPayable: finalTax,
     })
 
     setShowDashboard(true)
   }
 
+  /**
+   * Handler for text inputs
+   */
   const handleInputChange = (category, field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -292,6 +342,9 @@ const TaxCalculator = () => {
     }
   }
 
+  /**
+   * Render tab contents
+   */
   const renderTabContent = () => {
     switch (activeTab) {
       case 0:
@@ -324,7 +377,10 @@ const TaxCalculator = () => {
                 className="mt-2 block w-full h-12 rounded-lg border border-gray-300 bg-white px-4 text-gray-700 shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 transition-all"
                 value={formData.ageGroup}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, ageGroup: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    ageGroup: e.target.value,
+                  }))
                 }
               >
                 <option>0-60</option>
@@ -337,8 +393,8 @@ const TaxCalculator = () => {
       case 1:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(formData.incomeDetails).map(([key, value], index) => (
-              <label key={index} className="block">
+            {Object.entries(formData.incomeDetails).map(([key, value], idx) => (
+              <label key={idx} className="block">
                 <span className="text-gray-700 flex items-center gap-2">
                   {formatIncomeDetailsLabel(key)}
                   <InfoTooltip content={getTooltipContent(key)} />
@@ -364,8 +420,8 @@ const TaxCalculator = () => {
       case 2:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(formData.deductions).map(([key, value], index) => (
-              <label key={index} className="block">
+            {Object.entries(formData.deductions).map(([key, value], idx) => (
+              <label key={idx} className="block">
                 <span className="text-gray-700 flex items-center gap-2">
                   {formatDeductionLabel(key)}
                   <InfoTooltip content={getTooltipContent(key)} />
@@ -393,9 +449,15 @@ const TaxCalculator = () => {
     }
   }
 
+  /**
+   * Prepare the data for the bar chart
+   */
   const chartData = [
     { name: "Total Income", value: taxResults.totalIncome },
-    { name: "Deduction", value: taxResults.standardDeduction + taxResults.chapterVIA },
+    {
+      name: "Deduction",
+      value: taxResults.standardDeduction + taxResults.chapterVIA,
+    },
     { name: "Taxable Income", value: taxResults.taxableIncome },
     { name: "Tax Payable", value: taxResults.taxPayable },
   ]
@@ -567,7 +629,9 @@ const TaxCalculator = () => {
                   </h3>
                   <p className="text-3xl font-bold">
                     ₹
-                    {(taxResults.standardDeduction + taxResults.chapterVIA).toLocaleString()}
+                    {(
+                      taxResults.standardDeduction + taxResults.chapterVIA
+                    ).toLocaleString()}
                   </p>
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between">
@@ -584,9 +648,7 @@ const TaxCalculator = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>Chapter VI-A</span>
-                      <span>
-                        ₹{taxResults.chapterVIA.toLocaleString()}
-                      </span>
+                      <span>₹{taxResults.chapterVIA.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -599,9 +661,7 @@ const TaxCalculator = () => {
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between">
                       <span>Income Tax</span>
-                      <span>
-                        ₹{taxResults.incomeTax.toLocaleString()}
-                      </span>
+                      <span>₹{taxResults.incomeTax.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Surcharge</span>
