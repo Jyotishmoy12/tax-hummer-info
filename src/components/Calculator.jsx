@@ -1,17 +1,29 @@
-import { useState } from "react"
-import { BarChart, Bar, YAxis, ResponsiveContainer, Cell } from "recharts"
-import { Info } from "lucide-react"
+import { useState } from "react";
+import { BarChart, Bar, YAxis, ResponsiveContainer, Cell } from "recharts";
+import { Info } from "lucide-react";
+
+/**
+ * Formats a numeric string into the Indian number format.
+ * If input is empty, returns an empty string.
+ */
+const formatIndianNumber = (numStr) => {
+  if (!numStr) return "";
+  // Remove any commas
+  const numericValue = numStr.replace(/,/g, "");
+  // Format using the en-IN locale
+  return new Intl.NumberFormat("en-IN").format(Number(numericValue));
+};
 
 /**
  * A simple tooltip component that shows explanatory text on hover/touch.
  */
 const InfoTooltip = ({ content }) => {
-  const [isTooltipVisible, setTooltipVisible] = useState(false)
+  const [isTooltipVisible, setTooltipVisible] = useState(false);
 
-  const handleTouchStart = () => setTooltipVisible(true)
-  const handleTouchEnd = () => setTooltipVisible(false)
-  const handleMouseEnter = () => setTooltipVisible(true)
-  const handleMouseLeave = () => setTooltipVisible(false)
+  const handleTouchStart = () => setTooltipVisible(true);
+  const handleTouchEnd = () => setTooltipVisible(false);
+  const handleMouseEnter = () => setTooltipVisible(true);
+  const handleMouseLeave = () => setTooltipVisible(false);
 
   return (
     <div
@@ -35,8 +47,8 @@ const InfoTooltip = ({ content }) => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 /**
  * Helper to return tooltip text for each field.
@@ -59,37 +71,37 @@ const getTooltipContent = (field) => {
     nps80CCD: "Contributions to NPS (80CCD(1)).",
     nps80CCD2: "Employer's contribution to NPS (80CCD(2)).",
     otherDeduction: "Other Chapter VI-A deductions.",
-  }
-  return tooltips[field] || "Enter details here"
-}
+  };
+  return tooltips[field] || "Enter details here";
+};
 
 const TaxCalculator = () => {
-  const [activeTab, setActiveTab] = useState(0)
-  const [showDashboard, setShowDashboard] = useState(false)
+  const [activeTab, setActiveTab] = useState(0);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [formData, setFormData] = useState({
     financialYear: "FY 2025-2026", // or "FY 2024-2025"
     ageGroup: "0-60",
     incomeDetails: {
-      salary: 0,
-      exemptAllowances: 0,
-      interestIncome: 0,
-      homeLoanSelfOccupied: 0,
-      rentalIncome: 0,
-      homeLoanLetOut: 0,
-      digitalAssets: 0,
-      otherIncome: 0,
+      salary: "", // Stored as a string without commas
+      exemptAllowances: "",
+      interestIncome: "",
+      homeLoanSelfOccupied: "",
+      rentalIncome: "",
+      homeLoanLetOut: "",
+      digitalAssets: "",
+      otherIncome: "",
     },
     deductions: {
-      basic80C: 0,
-      deposits80TTA: 0,
-      medical80D: 0,
-      donations80G: 0,
-      housing80EEA: 0,
-      nps80CCD: 0,
-      nps80CCD2: 0,
-      otherDeduction: 0,
+      basic80C: "",
+      deposits80TTA: "",
+      medical80D: "",
+      donations80G: "",
+      housing80EEA: "",
+      nps80CCD: "",
+      nps80CCD2: "",
+      otherDeduction: "",
     },
-  })
+  });
 
   // Results to display after calculation
   const [taxResults, setTaxResults] = useState({
@@ -102,9 +114,9 @@ const TaxCalculator = () => {
     incomeTax: 0,
     surcharge: 0,
     healthEducationCess: 0,
-  })
+  });
 
-  const [selectedRegime, setSelectedRegime] = useState("new")
+  const [selectedRegime, setSelectedRegime] = useState("new");
 
   /**
    * 1. Calculate "gross income."
@@ -112,158 +124,135 @@ const TaxCalculator = () => {
    *    - New Regime: do not subtract "exemptAllowances"
    */
   const calculateTotalIncome = () => {
-    const inc = formData.incomeDetails
-    let salary = Number(inc.salary) || 0
-    const exempt = Number(inc.exemptAllowances) || 0
+    const inc = formData.incomeDetails;
+    let salary = Number(inc.salary) || 0;
+    const exempt = Number(inc.exemptAllowances) || 0;
     let otherIncome =
       (Number(inc.interestIncome) || 0) +
       (Number(inc.homeLoanSelfOccupied) || 0) +
       (Number(inc.rentalIncome) || 0) +
       (Number(inc.homeLoanLetOut) || 0) +
       (Number(inc.digitalAssets) || 0) +
-      (Number(inc.otherIncome) || 0)
+      (Number(inc.otherIncome) || 0);
 
     if (selectedRegime === "old") {
-      // In old regime, subtract exemptAllowances from salary
-      salary -= exempt
+      salary -= exempt;
     }
-    return salary + otherIncome
-  }
+    return salary + otherIncome;
+  };
 
   /**
-   * 2. Calculate the total deduction
-   *    - New Regime: standard deduction only (based on FY)
-   *    - Old Regime: standard deduction + sum(Chapter VI-A)
+   * 2. Calculate the total deduction.
+   *    - New Regime: standard deduction only.
+   *    - Old Regime: standard deduction + Chapter VI-A deductions.
    */
   const calculateDeductions = () => {
-    const fy = formData.financialYear
-    let standardDeduction = fy === "FY 2025-2026" ? 75000 : 50000
+    const fy = formData.financialYear;
+    let standardDeduction = fy === "FY 2025-2026" ? 75000 : 50000;
 
     if (selectedRegime === "new") {
-      // No Chapter VI-A in new regime
-      return standardDeduction
+      return standardDeduction;
     } else {
-      // Old Regime: standard deduction + Chapter VI-A
       const chapterVIA = Object.values(formData.deductions).reduce(
         (a, b) => a + (Number(b) || 0),
         0
-      )
-      return standardDeduction + chapterVIA
+      );
+      return standardDeduction + chapterVIA;
     }
-  }
+  };
 
   /**
-   * 3. Slab-wise tax calculation based on regime & FY
-   *    - Then apply rebate (if any)
-   *    - Then add 4% cess
+   * 3. Slab-wise tax calculation based on regime & FY, including rebate and cess.
    */
   const calculateTaxSlabWise = (taxableIncome) => {
-    let tax = 0
-    const fy = formData.financialYear
+    let tax = 0;
+    const fy = formData.financialYear;
 
     if (selectedRegime === "new") {
-      // New Regime Slabs (FY 2024–25 & FY 2025–26)
-      // 0-3L:0%, 3-6L:5%, 6-9L:10%, 9-12L:15%, 12-15L:20%, >15L:30%
+      const isFY2526 = fy === "FY 2025-2026";
       if (taxableIncome > 1500000) {
         tax =
-          150000 * 0.3 + // we'll break it down for clarity
           slabTax(0, 300000, 0) +
           slabTax(300000, 600000, 0.05) +
           slabTax(600000, 900000, 0.1) +
           slabTax(900000, 1200000, 0.15) +
           slabTax(1200000, 1500000, 0.2) +
-          (taxableIncome - 1500000) * 0.3
+          (taxableIncome - 1500000) * (isFY2526 ? 0.25 : 0.3);
       } else if (taxableIncome > 1200000) {
         tax =
           slabTax(0, 300000, 0) +
           slabTax(300000, 600000, 0.05) +
           slabTax(600000, 900000, 0.1) +
-          slabTax(900000, 1200000, 0.15) +
-          (taxableIncome - 1200000) * 0.2
+          (taxableIncome - 1200000) * 0.2;
       } else if (taxableIncome > 900000) {
         tax =
           slabTax(0, 300000, 0) +
           slabTax(300000, 600000, 0.05) +
-          slabTax(600000, 900000, 0.1) +
-          (taxableIncome - 900000) * 0.15
+          (taxableIncome - 900000) * 0.15;
       } else if (taxableIncome > 600000) {
         tax =
           slabTax(0, 300000, 0) +
-          slabTax(300000, 600000, 0.05) +
-          (taxableIncome - 600000) * 0.1
+          (taxableIncome - 600000) * 0.1;
       } else if (taxableIncome > 300000) {
-        tax = slabTax(0, 300000, 0) + (taxableIncome - 300000) * 0.05
+        tax = (taxableIncome - 300000) * 0.05;
       } else {
-        tax = 0
+        tax = 0;
       }
 
-      // Rebate in new regime
-      // FY 2024–25 => up to 7L, FY 2025–26 => up to 12L
+      // Apply 87A Rebate for New Regime:
       if (fy === "FY 2024-2025" && taxableIncome <= 700000) {
-        tax = 0
+        tax = 0;
       } else if (fy === "FY 2025-2026" && taxableIncome <= 1200000) {
-        tax = 0
+        tax = 0;
       }
     } else {
-      // Old Regime Slabs
-      // 0-2.5L:0%, 2.5-5L:5%, 5-10L:20%, >10L:30%
+      // Old Regime Slabs:
       if (taxableIncome > 1000000) {
-        tax =
-          12500 + 100000 + (taxableIncome - 1000000) * 0.3 // = 1,12,500 + 30% of (above 10L)
+        tax = 12500 + 100000 + (taxableIncome - 1000000) * 0.3;
       } else if (taxableIncome > 500000) {
-        tax = 12500 + (taxableIncome - 500000) * 0.2
+        tax = 12500 + (taxableIncome - 500000) * 0.2;
       } else if (taxableIncome > 250000) {
-        tax = (taxableIncome - 250000) * 0.05
+        tax = (taxableIncome - 250000) * 0.05;
       } else {
-        tax = 0
+        tax = 0;
       }
-
-      // Rebate in old regime
-      // up to 5L for both FY 2024–25 & 2025–26
       if (taxableIncome <= 500000) {
-        tax = 0
+        tax = 0;
       }
     }
 
-    // Add 4% cess
-    const cess = Math.round(tax * 0.04)
+    const cess = Math.round(tax * 0.04);
     return {
       tax,
       cess,
       finalTax: tax + cess,
-    }
-  }
+    };
+  };
 
   /**
-   * Utility function to calculate partial tax for a slab.
-   * e.g. slabTax(300000, 600000, 0.05) calculates
-   * 5% of (taxableIncome in [300000, 600000]).
+   * Utility function to calculate tax for a slab.
    */
   const slabTax = (lower, upper, rate) => {
-    // We'll handle the portion of the taxable income that falls in [lower, upper]
-    // but in practice we've done the if/else to break it up anyway.
-    return (upper - lower) * rate
-  }
+    return (upper - lower) * rate;
+  };
 
   /**
-   * Handle the "Calculate" button
+   * Handle the "Calculate" button click.
    */
   const handleCalculate = () => {
-    const totalIncome = calculateTotalIncome()
-    const totalDeductions = calculateDeductions()
-    const taxableIncome = Math.max(0, totalIncome - totalDeductions)
+    const totalIncome = calculateTotalIncome();
+    const totalDeductions = calculateDeductions();
+    const taxableIncome = Math.max(0, totalIncome - totalDeductions);
 
-    const { tax, cess, finalTax } = calculateTaxSlabWise(taxableIncome)
+    const { tax, cess, finalTax } = calculateTaxSlabWise(taxableIncome);
 
     setTaxResults({
       totalIncome,
-      // Only show exempt allowances if they haven't been subtracted in new regime
       exemptAllowances:
         selectedRegime === "new"
           ? Number(formData.incomeDetails.exemptAllowances) || 0
           : 0,
-      standardDeduction:
-        formData.financialYear === "FY 2025-2026" ? 75000 : 50000,
+      standardDeduction: formData.financialYear === "FY 2025-2026" ? 75000 : 50000,
       chapterVIA:
         selectedRegime === "old"
           ? Object.values(formData.deductions).reduce(
@@ -276,74 +265,75 @@ const TaxCalculator = () => {
       healthEducationCess: cess,
       surcharge: 0,
       taxPayable: finalTax,
-    })
+    });
 
-    setShowDashboard(true)
-  }
+    setShowDashboard(true);
+  };
 
   /**
-   * Handler for text inputs
+   * Updated input change handler to remove commas and store a sanitized value.
    */
   const handleInputChange = (category, field, value) => {
+    const sanitizedValue = value.replace(/,/g, "");
     setFormData((prev) => ({
       ...prev,
       [category]: {
         ...prev[category],
-        [field]: value,
+        [field]: sanitizedValue,
       },
-    }))
-  }
+    }));
+  };
 
-  const tabs = ["Basic Details", "Income Details", "Deductions"]
+  const tabs = ["Basic Details", "Income Details", "Deductions"];
 
   const formatDeductionLabel = (key) => {
     switch (key) {
       case "basic80C":
-        return "Basic - 80C"
+        return "Basic - 80C";
       case "deposits80TTA":
-        return "Deposits - 80TTA"
+        return "Deposits - 80TTA";
       case "medical80D":
-        return "Medical - 80D"
+        return "Medical - 80D";
       case "donations80G":
-        return "Donations - 80G"
+        return "Donations - 80G";
       case "housing80EEA":
-        return "Housing - 80EEA"
+        return "Housing - 80EEA";
       case "nps80CCD":
-        return "NPS - 80CCD"
+        return "NPS - 80CCD";
       case "nps80CCD2":
-        return "NPS - 80CCD(2)"
+        return "NPS - 80CCD(2)";
       case "otherDeduction":
-        return "Other Deduction"
+        return "Other Deduction";
       default:
-        return key
+        return key;
     }
-  }
+  };
 
   const formatIncomeDetailsLabel = (key) => {
     switch (key) {
       case "salary":
-        return "Income from Salary"
+        return "Income from Salary";
       case "exemptAllowances":
-        return "Exempt Allowances"
+        return "Exempt Allowances";
       case "interestIncome":
-        return "Income from Interest"
+        return "Income from Interest";
       case "homeLoanSelfOccupied":
-        return "Interest on Home Loan (Self-Occupied)"
+        return "Interest on Home Loan (Self-Occupied)";
       case "rentalIncome":
-        return "Rental Income"
+        return "Rental Income";
       case "homeLoanLetOut":
-        return "Interest on Home Loan (Let-Out)"
+        return "Interest on Home Loan (Let-Out)";
       case "digitalAssets":
-        return "Income from Digital Assets"
+        return "Income from Digital Assets";
       case "otherIncome":
-        return "Other Income"
+        return "Other Income";
       default:
-        return key
+        return key;
     }
-  }
+  };
 
   /**
-   * Render tab contents
+   * Render tab contents.
    */
   const renderTabContent = () => {
     switch (activeTab) {
@@ -389,7 +379,7 @@ const TaxCalculator = () => {
               </select>
             </label>
           </div>
-        )
+        );
       case 1:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,19 +394,19 @@ const TaxCalculator = () => {
                     ₹
                   </span>
                   <input
-                    type="number"
-                    value={value || ""}
+                    type="text"
+                    value={formatIndianNumber(formData.incomeDetails[key])}
                     onChange={(e) =>
                       handleInputChange("incomeDetails", key, e.target.value)
                     }
-                    placeholder="Enter amount"
+                    placeholder="e.g., 12,75,000"
                     className="pl-12 block w-full h-12 rounded-lg border border-gray-300 focus:border-purple-500 focus:ring focus:ring-purple-200"
                   />
                 </div>
               </label>
             ))}
           </div>
-        )
+        );
       case 2:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -431,26 +421,26 @@ const TaxCalculator = () => {
                     ₹
                   </span>
                   <input
-                    type="number"
-                    value={value || ""}
+                    type="text"
+                    value={formatIndianNumber(formData.deductions[key])}
                     onChange={(e) =>
                       handleInputChange("deductions", key, e.target.value)
                     }
-                    placeholder="Enter amount"
+                    placeholder="e.g., 1,50,000"
                     className="pl-12 block w-full h-12 rounded-lg border border-gray-300 focus:border-purple-500 focus:ring focus:ring-purple-200"
                   />
                 </div>
               </label>
             ))}
           </div>
-        )
+        );
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   /**
-   * Prepare the data for the bar chart
+   * Prepare data for the bar chart.
    */
   const chartData = [
     { name: "Total Income", value: taxResults.totalIncome },
@@ -460,7 +450,7 @@ const TaxCalculator = () => {
     },
     { name: "Taxable Income", value: taxResults.taxableIncome },
     { name: "Tax Payable", value: taxResults.taxPayable },
-  ]
+  ];
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6 my-25">
@@ -551,13 +541,13 @@ const TaxCalculator = () => {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h3 className="text-gray-600">Total Income</h3>
               <p className="text-3xl font-bold mt-2">
-                ₹{taxResults.totalIncome.toLocaleString()}
+                ₹{taxResults.totalIncome.toLocaleString("en-IN")}
               </p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h3 className="text-gray-600">Taxable Income</h3>
               <p className="text-3xl font-bold mt-2">
-                ₹{taxResults.taxableIncome.toLocaleString()}
+                ₹{taxResults.taxableIncome.toLocaleString("en-IN")}
               </p>
             </div>
           </div>
@@ -585,12 +575,12 @@ const TaxCalculator = () => {
                           key={`cell-${index}`}
                           fill={
                             index === 0
-                              ? "#60A5FA" // Total Income
+                              ? "#60A5FA"
                               : index === 1
-                              ? "#F59E0B" // Deductions
+                              ? "#F59E0B"
                               : index === 2
-                              ? "#10B981" // Taxable Income
-                              : "#6366F1" // Tax Payable
+                              ? "#10B981"
+                              : "#6366F1"
                           }
                         />
                       ))}
@@ -629,26 +619,20 @@ const TaxCalculator = () => {
                   </h3>
                   <p className="text-3xl font-bold">
                     ₹
-                    {(
-                      taxResults.standardDeduction + taxResults.chapterVIA
-                    ).toLocaleString()}
+                    {(taxResults.standardDeduction + taxResults.chapterVIA).toLocaleString("en-IN")}
                   </p>
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between">
                       <span>Exempt Allowances</span>
-                      <span>
-                        ₹{taxResults.exemptAllowances.toLocaleString()}
-                      </span>
+                      <span>₹{taxResults.exemptAllowances.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Standard Deduction</span>
-                      <span>
-                        ₹{taxResults.standardDeduction.toLocaleString()}
-                      </span>
+                      <span>₹{taxResults.standardDeduction.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Chapter VI-A</span>
-                      <span>₹{taxResults.chapterVIA.toLocaleString()}</span>
+                      <span>₹{taxResults.chapterVIA.toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
@@ -656,22 +640,20 @@ const TaxCalculator = () => {
                 <div>
                   <h3 className="text-xl font-semibold mb-2">Tax Payable</h3>
                   <p className="text-3xl font-bold">
-                    ₹{taxResults.taxPayable.toLocaleString()}
+                    ₹{taxResults.taxPayable.toLocaleString("en-IN")}
                   </p>
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between">
                       <span>Income Tax</span>
-                      <span>₹{taxResults.incomeTax.toLocaleString()}</span>
+                      <span>₹{taxResults.incomeTax.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Surcharge</span>
-                      <span>₹{taxResults.surcharge.toLocaleString()}</span>
+                      <span>₹{taxResults.surcharge.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Health &amp; Education Cess</span>
-                      <span>
-                        ₹{taxResults.healthEducationCess.toLocaleString()}
-                      </span>
+                      <span>₹{taxResults.healthEducationCess.toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
@@ -681,7 +663,7 @@ const TaxCalculator = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default TaxCalculator
+export default TaxCalculator;
